@@ -35,7 +35,6 @@ form.addEventListener('submit', e => {
 
       if (images.totalHits > perPage) {
         loadBtn.style.display = 'block';
-        console.log(images.totalHits);
       } else {
         notification();
       }
