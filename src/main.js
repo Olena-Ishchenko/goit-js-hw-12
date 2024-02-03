@@ -8,6 +8,7 @@ const form = document.querySelector('.form');
 const gallery = document.querySelector('.gallery');
 const loader = document.querySelector('.loader');
 const loadBtn = document.querySelector('.more');
+const lightBox = new SimpleLightbox('.gallery-link');
 let page = 1;
 let perPage = 15;
 loadBtn.style.display = 'none';
@@ -21,55 +22,75 @@ const searchParams = {
   per_page: perPage,
 };
 
-form.addEventListener('submit', e => {
+form.addEventListener('submit', async e => {
   e.preventDefault();
   page = 1;
-  loader.style.display = 'inline-block';
+  loadBtn.style.display = 'none';
   gallery.innerHTML = '';
   const inputText = form.elements.search.value.trim();
-  searchParams.q = inputText;
-  searchParams.page = page;
-  fetchImage()
-    .then(images => {
-      renderGallery(images);
-
-      if (images.totalHits > perPage) {
-        loadBtn.style.display = 'block';
+  if (inputText === '') {
+    iziToast.show({
+      message: 'Please write search image',
+      messageColor: '#FAFAFB',
+      backgroundColor: '#EF4040',
+      position: 'topRight',
+    });
+    return;
+  } else {
+    loader.style.display = 'inline-block';
+    searchParams.q = inputText;
+    searchParams.page = page;
+    try {
+      const images = await fetchImage();
+      if (images.totalHits === 0) {
+        iziToast.show({
+          message:
+            'Sorry, there are no images matching your search query. Please try again!',
+          messageColor: '#FAFAFB',
+          backgroundColor: '#EF4040',
+          position: 'topRight',
+        });
+        loader.style.display = 'none';
       } else {
-        notification();
+        renderGallery(images);
+        if (images.totalHits < perPage) {
+          notification();
+        } else {
+          loadBtn.style.display = 'block';
+        }
       }
-    })
-    .catch(error =>
+    } catch (error) {
       iziToast.show({
         message: `Sorry, ${error}`,
         messageColor: '#FAFAFB',
         backgroundColor: '#EF4040',
         position: 'topRight',
-      })
-    );
+      });
+    }
+  }
 
   form.reset();
 });
 
-loadBtn.addEventListener('click', e => {
+loadBtn.addEventListener('click', async () => {
   page += 1;
   searchParams.page = page;
   loader.style.display = 'inline-block';
-  fetchImage()
-    .then(images => {
-      renderGallery(images);
-      if (perPage * page > images.totalHits) {
-        notification();
-      }
-    })
-    .catch(error =>
-      iziToast.show({
-        message: `Sorry, ${error}`,
-        messageColor: '#FAFAFB',
-        backgroundColor: '#EF4040',
-        position: 'bottomCenter',
-      })
-    );
+  try {
+    const images = await fetchImage();
+    renderGallery(images);
+    scroll();
+    if (perPage * page > images.totalHits) {
+      notification();
+    }
+  } catch (error) {
+    iziToast.show({
+      message: `Sorry, ${error}`,
+      messageColor: '#FAFAFB',
+      backgroundColor: '#EF4040',
+      position: 'bottomCenter',
+    });
+  }
 });
 
 async function fetchImage() {
@@ -79,18 +100,9 @@ async function fetchImage() {
 }
 
 function renderGallery(images) {
-  if (images.hits.length === 0) {
-    iziToast.show({
-      message:
-        'Sorry, there are no images matching your search query. Please try again!',
-      messageColor: '#FAFAFB',
-      backgroundColor: '#EF4040',
-      position: 'topRight',
-    });
-  } else {
-    const item = images.hits
-      .map(
-        image => `<li class="gallery-item">
+  const item = images.hits
+    .map(
+      image => `<li class="gallery-item">
     <a class="gallery-link" href="${image.largeImageURL}" >
       <img
         class="gallery-image"
@@ -118,14 +130,12 @@ function renderGallery(images) {
     </div>
       </div>
   </li>`
-      )
-      .join('');
+    )
+    .join('');
 
-    gallery.insertAdjacentHTML('beforeend', item);
-    scroll();
-    const lightBox = new SimpleLightbox('.gallery-link');
-    lightBox.refresh();
-  }
+  gallery.insertAdjacentHTML('beforeend', item);
+  lightBox.refresh();
+
   loader.style.display = 'none';
 }
 
