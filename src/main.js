@@ -11,24 +11,17 @@ const loadBtn = document.querySelector('.more');
 const lightBox = new SimpleLightbox('.gallery-link');
 let page = 1;
 let perPage = 15;
+let searchQuery;
 loadBtn.style.display = 'none';
 loader.style.display = 'none';
-const searchParams = {
-  key: '42093583-bfe36716eb3593f6644c471e3',
-  q: '',
-  image_type: 'photo',
-  orientation: 'horizontal',
-  safesearch: true,
-  per_page: perPage,
-};
 
 form.addEventListener('submit', async e => {
   e.preventDefault();
   page = 1;
   loadBtn.style.display = 'none';
   gallery.innerHTML = '';
-  const inputText = form.elements.search.value.trim();
-  if (inputText === '') {
+  searchQuery = form.elements.search.value.trim();
+  if (searchQuery === '') {
     iziToast.show({
       message: 'Please write search image',
       messageColor: '#FAFAFB',
@@ -36,51 +29,49 @@ form.addEventListener('submit', async e => {
       position: 'topRight',
     });
     return;
-  } else {
-    loader.style.display = 'inline-block';
-    searchParams.q = inputText;
-    searchParams.page = page;
-    try {
-      const images = await fetchImage();
-      if (images.totalHits === 0) {
-        iziToast.show({
-          message:
-            'Sorry, there are no images matching your search query. Please try again!',
-          messageColor: '#FAFAFB',
-          backgroundColor: '#EF4040',
-          position: 'topRight',
-        });
-        loader.style.display = 'none';
-      } else {
-        renderGallery(images);
-        if (images.totalHits < perPage) {
-          notification();
-        } else {
-          loadBtn.style.display = 'block';
-        }
-      }
-    } catch (error) {
+  }
+
+  loader.style.display = 'inline-block';
+  try {
+    const { hits, totalHits } = await fetchImage(searchQuery, page);
+    if (totalHits === 0) {
       iziToast.show({
-        message: `Sorry, ${error}`,
+        message:
+          'Sorry, there are no images matching your search query. Please try again!',
         messageColor: '#FAFAFB',
         backgroundColor: '#EF4040',
         position: 'topRight',
       });
+      loader.style.display = 'none';
+      return;
     }
+    renderGallery(hits);
+    if (totalHits < perPage) {
+      notification();
+    } else {
+      loadBtn.style.display = 'block';
+    }
+  } catch (error) {
+    iziToast.show({
+      message: `Sorry, ${error}`,
+      messageColor: '#FAFAFB',
+      backgroundColor: '#EF4040',
+      position: 'topRight',
+    });
+  } finally {
+    form.reset();
   }
-
-  form.reset();
 });
 
 loadBtn.addEventListener('click', async () => {
   page += 1;
-  searchParams.page = page;
+
   loader.style.display = 'inline-block';
   try {
-    const images = await fetchImage();
-    renderGallery(images);
+    const { hits, totalHits } = await fetchImage(searchQuery, page);
+    renderGallery(hits);
     scroll();
-    if (perPage * page > images.totalHits) {
+    if (perPage * page > totalHits) {
       notification();
     }
   } catch (error) {
@@ -93,47 +84,64 @@ loadBtn.addEventListener('click', async () => {
   }
 });
 
-async function fetchImage() {
+async function fetchImage(searchQuery, page) {
+  const searchParams = {
+    key: '42093583-bfe36716eb3593f6644c471e3',
+    q: searchQuery,
+    page,
+    image_type: 'photo',
+    orientation: 'horizontal',
+    safesearch: true,
+    per_page: perPage,
+  };
   const urlparams = new URLSearchParams(searchParams);
-  const response = await axios.get(`https://pixabay.com/api/?${urlparams}`);
-  return response.data;
+  const { data } = await axios.get(`https://pixabay.com/api/?${urlparams}`);
+  return data;
 }
 
 function renderGallery(images) {
-  const item = images.hits
+  const markup = images
     .map(
-      image => `<li class="gallery-item">
-    <a class="gallery-link" href="${image.largeImageURL}" >
+      ({
+        largeImageURL,
+        webformatURL,
+        tags,
+        likes,
+        views,
+        comments,
+        downloads,
+      }) => `<li class="gallery-item">
+    <a class="gallery-link" href="${largeImageURL}" >
       <img
         class="gallery-image"
-        src="${image.webformatURL}"
-        alt="${image.tags}"
+        src="${webformatURL}"
+        alt="${tags}"
       width = "360"
       />
     </a>
     <div class="img-text">
     <div class="img-info">
     <h3>Likes</h3>
-    <p> ${image.likes}</p>
+    <p> ${likes}</p>
     </div>
     <div class="img-info">
     <h3>Views</h3>
-    <p> ${image.views}</p>
+    <p> ${views}</p>
     </div>
        <div class="img-info">
     <h3>Comments</h3>
-    <p> ${image.comments}</p>
+    <p> ${comments}</p>
     </div>
        <div class="img-info">
     <h3>Downloads</h3>
-    <p> ${image.downloads}</p>
+    <p> ${downloads}</p>
     </div>
       </div>
   </li>`
     )
     .join('');
 
-  gallery.insertAdjacentHTML('beforeend', item);
+  gallery.insertAdjacentHTML('beforeend', markup);
   lightBox.refresh();
 
   loader.style.display = 'none';
