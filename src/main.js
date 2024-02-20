@@ -9,11 +9,20 @@ const gallery = document.querySelector('.gallery');
 const loader = document.querySelector('.loader');
 const loadBtn = document.querySelector('.more');
 const lightBox = new SimpleLightbox('.gallery-link');
+const body = document.querySelector('body');
+const themeswitch = document.querySelector('.checkbox');
 let page = 1;
 let perPage = 15;
 let searchQuery;
 loadBtn.style.display = 'none';
 loader.style.display = 'none';
+
+const saveTheme = localStorage.getItem('theme');
+const parsedSaveTheme = JSON.parse(saveTheme);
+if (parsedSaveTheme === true) {
+  body.classList.remove('light-theme');
+  body.classList.add('dark-theme');
+}
 
 form.addEventListener('submit', async e => {
   e.preventDefault();
@@ -167,3 +176,14 @@ function scroll() {
     behavior: 'smooth',
   });
 }
+
+themeswitch.addEventListener('click', e => {
+  if (themeswitch.checked === true) {
+    body.classList.remove('light-theme');
+    body.classList.add('dark-theme');
+  } else {
+    body.classList.remove('dark-theme');
+    body.classList.add('light-theme');
+  }
+  localStorage.setItem('theme', JSON.stringify(themeswitch.checked));
+});
